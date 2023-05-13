@@ -1,4 +1,5 @@
 #include "SerialTransfer.h"
+#include <AccelStepper.h>
 
 struct STRUCT {
   float temp1;
@@ -10,16 +11,33 @@ struct STRUCT {
 
 SerialTransfer teensyToArduinoTransfer;
 
+//Nema 23
+const int dirPin1 = 2;
+const int stepPin1 = 3;
+AccelStepper linearStepper(AccelStepper::DRIVER, stepPin1, dirPin1); //controlled by driver board, 3 = step, 2 = direction
+
+bool motorTurning = false;
+
+
 void setup() {
   SerialUSB.begin(9600);
   Serial1.begin(9600);
   teensyToArduinoTransfer.begin(Serial1);
+
+  linearStepper.setMaxSpeed(200); //max speed set in pul/rev
+  linearStepper.setSpeed(200); //speed in steps per second
+  linearStepper.setCurrentPosition(0);
+  linearStepper.setAcceleration(200);
+  linearStepper.runToNewPosition(200*100);
+
   delay(500);
 }
 
 void loop() {
 
   SerialUSB.println("Starting Loop");
+
+  // linearStepper.runSpeed();
 
   if(teensyToArduinoTransfer.available()) {
 
