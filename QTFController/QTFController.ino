@@ -46,11 +46,21 @@ void loop() {
     uint16_t recSize = 0;
     recSize = teensyToArduinoTransfer.rxObj(data, recSize);
     
-    SerialUSB.println(data.temp1);
-    SerialUSB.println(data.temp2);
-    SerialUSB.println(data.temp3);
-    SerialUSB.println(data.temp4);
-    SerialUSB.println(data.temp5);
+
+    float time = millis();
+    SerialUSB.print(time);
+    SerialUSB.print(',');
+    SerialUSB.print(data.temp1);
+    SerialUSB.print(',');
+    SerialUSB.print(data.temp2);
+    SerialUSB.print(',');
+    SerialUSB.print(data.temp3);
+    SerialUSB.print(',');
+    SerialUSB.print(data.temp4);
+    SerialUSB.print(',');
+    SerialUSB.print(data.temp5);
+    SerialUSB.print('\n');
+    
 
     ////// Choose what temperature we want to send to the temperature controller
 
