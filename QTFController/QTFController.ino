@@ -39,59 +39,22 @@ void fnExecRead() {
   }
 }
 
-// void fnExecWrite( //This void executed only when there is a command from MQTT Broker to Write a Value to the device(s
-//   char vTulisID[][6], char vNumSlaveID[][3], char vStrFunction[][3],
-//   char vNumAddressDec[][5], char vStrValue[][6], char vSlaveDInstrumenID[][6]
-// ) {
-//   uint8_t WriteResult; //Variable to get Read result from Max485
-//   int dataTulisNya; //Variable to save the value written to device
+void fnExecWrite() {
+  uint8_t WriteResult; //Variable to get Read result from Max485
+  int dataTulisNya; //Variable to save the value written to device
 
-//   ModbusMaster nodeTulis; //Variable to save ModbusMaster type data
-//   //This variable's size is HUGE. Note that I declare it inside the void so after this void executed, Arduino could regain the memory used for this variable
+  WriteResult = tempControllerMM.writeSingleRegister(0, tempControllerValue);
 
-//   for (int i = 0; i < JmlTls - 1; i++) { //Loop as many as instructed from the Write Command received from MQTT Broker
+  delay(600); //Give Arduino some time to finish write command properly
 
-//     nodeTulis.begin( atoi( vNumSlaveID[i]), Serial2); //Initialize Modbus variable
+  if (WriteResult == tempControllerMM.ku8MBSuccess) { //Check whether Max485 successfuly write to the device
+    dataTulisNya = tempControllerMM.getResponseBuffer(0); //Get the data from Max485 Response Buffer
+    SerialUSB.print("Successfully wrote new target value temp: ");
+    SerialUSB.println(tempControllerValue);
+  }
 
-//     nodeTulis.preTransmission(preTransmission); //Initialize Modbus variable
-//     nodeTulis.postTransmission(postTransmission); //Initialize Modbus variable
-
-//     WriteResult = nodeTulis.writeSingleRegister(atoi( vNumAddressDec[i] ), atoi( vStrValue[i] )); //Write the value to the device via Max485
-
-//     delay(600); //Give Arduino some time to finish write command properly
-
-//     if (WriteResult == nodeTulis.ku8MBSuccess) { //Check whether Max485 successfuly write to the device
-//       dataTulisNya = nodeTulis.getResponseBuffer(0); //Get the data from Max485 Response Buffer
-
-//       char StrJSONWrite[300]; //Variable to store JSON string
-
-//       StrJSONWrite[0] = '\0'; //Initialize the variable
-
-//       // Concatenation of the text for JSON string
-//       strcat( StrJSONWrite, "{\"ID\":\"");
-//       strcat( StrJSONWrite, GlobMicConKode);
-//       strcat( StrJSONWrite, "\",\"FN\":\"Write\",\"Data\":{\"ArrDt\":[{\"TPID\":");
-//       strcat( StrJSONWrite, vTulisID[i] );
-//       strcat( StrJSONWrite, "}]}}");
-
-//       //  Serial.println( MQCli.connected() ); //for debugging purpose, write to Serial
-
-//       strcpy( StrJSONWrite, "\0"); //Initialize the variable
-
-//       char IsiRowNya[60]; //Variable to store Each Value Written
-
-//       sprintf( IsiRowNya, "{\"ArrDt\":[{\"FN\":\"%s\",\"ADR\":\"%s\",\"VID\":%s,\"VAL\":%s}]}", vStrFunction[i], vNumAddressDec[i], vNumSlaveID[i], vStrValue[i] );
-
-//       strcat( StrJSONWrite, "{\"ID\":\"");
-//       strcat( StrJSONWrite, GlobMicConKode);
-//       strcat( StrJSONWrite, "\",\"FN\":\"Write\",\"Data\":");
-//       strcat( StrJSONWrite, IsiRowNya );
-//       strcat( StrJSONWrite, "}");
-//     }
-
-//     delay (500);
-//   }
-// }
+  delay (500);
+}
 
 void preTransmission() { //Function for setting stste of Pins DE & RE of RS-485 to HIGH
   delay(500);
@@ -203,7 +166,7 @@ void loop() {
 
   SerialUSB.println("calling fnExecRead...");
   fnExecRead(); //Read from Max485
-  // fnExecWrite();
+  fnExecWrite();
 
   delay(1000); // Commented this out to make stepper motor run more smoothly
 }
