@@ -2,19 +2,28 @@
 #include <AccelStepper.h>
 #include <ModbusMaster.h>
 
+// ------------- Configuration Section -------------
+
+int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
+int runTime = 100;            // In minutes.
+
+// ------------ End Configuration Section ----------
+
+
+
 #define MAX485_DE 7         //DE Pin of Max485
 #define MAX485_RE_NEG 6     //RE Pin of Max485
+#define GREEN_BUTTON_PIN 22
+#define RED_BUTTON_PIN 23
 
 ModbusMaster tempControllerMM;
-int tempControllerValue;
+int presentValue = 0;
 
-void fnExecRead() {
+void readPresentValue() {
 
-  int addressToRead = 0x3E8; // The address of Present Value
+  int addressToRead = 0x3E8; // The address of Present Value (See Section 2.3 "Read Input Registers" of TK Series User Manual for Communication)
 
-  // SerialUSB.println("calling readInputRegisters...");
   uint8_t ReadResult = tempControllerMM.readInputRegisters(addressToRead, 1);
-  // SerialUSB.println("returned from readInputRegisters...");
   int dataNya;
 
   delay(600); //Give the Arduino time to finish the reading
@@ -26,31 +35,34 @@ void fnExecRead() {
     itoa( dataNya, StrBufReadResult, 10 ); //Convert the data to string
     char StrReadRow[45]; //Variable to store read result per row
 
-    strcat(StrReadRow, "Read temperature value: ");
-    strcat(StrReadRow, StrBufReadResult );
+    // Set the global variable
+    presentValue = atoi(StrBufReadResult);
 
-    // Increment the temp controller (just a test for now)
-    tempControllerValue = atoi(StrBufReadResult) + 1;
-
-    SerialUSB.println(StrReadRow); //for debugging purpose, write to Serial
-  } else { //Check whether Max485 cannot reads the device and an error has arise
-    SerialUSB.print("Error = "); //for debugging purpose, write to Serial
-    SerialUSB.println(ReadResult); //for debugging purpose, write to Serial
+    // Log the result
+    strcat(StrReadRow, "Read present value: ");
+    strcat(StrReadRow, StrBufReadResult);
+    SerialUSB.println(StrReadRow); 
+  } else { // There was some kind of error, so log it
+    SerialUSB.print("Error in readPresentValue = ");
+    SerialUSB.println(ReadResult);
   }
 }
 
-void fnExecWrite() {
+void writeTargetTemperature(int targetTemp) {
   uint8_t WriteResult; //Variable to get Read result from Max485
   int dataTulisNya; //Variable to save the value written to device
 
-  WriteResult = tempControllerMM.writeSingleRegister(0, tempControllerValue);
+  WriteResult = tempControllerMM.writeSingleRegister(0, targetTemp);
 
   delay(600); //Give Arduino some time to finish write command properly
 
   if (WriteResult == tempControllerMM.ku8MBSuccess) { //Check whether Max485 successfuly write to the device
     dataTulisNya = tempControllerMM.getResponseBuffer(0); //Get the data from Max485 Response Buffer
     SerialUSB.print("Successfully wrote new target value temp: ");
-    SerialUSB.println(tempControllerValue);
+    SerialUSB.println(targetTemp);
+  } else {
+    SerialUSB.print("Error in writeTargetTemperature = ");
+    SerialUSB.println(WriteResult);
   }
 
   delay (500);
@@ -119,7 +131,7 @@ void setup() {
   tempControllerMM.preTransmission(preTransmission);
   tempControllerMM.postTransmission(postTransmission);
 
-  SerialUSB.println("Time(s),Temp1,Temp2,Temp3,Temp4,Temp5,StepperPosition,StepperSpeed,StepperAcceleration,StepperDistanceToGo,StepperDirection,StepperTargetPosition");
+  SerialUSB.println("Time(s),Temp1,Temp2,Temp3,Temp4,Temp5,StepperPosition,StepperSpeed,StepperAcceleration,StepperDistanceToGo,StepperDirection,StepperTargetPosition,PresentValue");
   delay(2000);
 }
 
@@ -151,7 +163,10 @@ void loop() {
     SerialUSB.print(',');
     SerialUSB.print(linearStepper.distanceToGo());
     SerialUSB.print(',');
-    SerialUSB.println(linearStepper.targetPosition());
+    SerialUSB.print(linearStepper.targetPosition());
+    
+    SerialUSB.print(',');
+    SerialUSB.println(presentValue);
 
 
   } else if(teensyToArduinoTransfer.status < 0) {
@@ -164,9 +179,8 @@ void loop() {
       SerialUSB.println(F("STOP_BYTE_ERROR"));
   }
 
-  SerialUSB.println("calling fnExecRead...");
-  fnExecRead(); //Read from Max485
-  fnExecWrite();
+  readPresentValue();
+  writeTargetTemperature(20);
 
   delay(1000); // Commented this out to make stepper motor run more smoothly
 }
