@@ -22,7 +22,7 @@ int debounce = 50;
 bool pullup = true;
 bool invert = true;
 EasyButton startButton(GREEN_BUTTON_PIN, debounce, pullup, invert);
-EasyButton stopButton(RED_BUTTON_PIN);
+EasyButton stopButton(RED_BUTTON_PIN, debounce, pullup, invert);
 
 ModbusMaster tempControllerMM;
 int presentValue = 0;
@@ -144,13 +144,8 @@ void setup() {
 
   startButton.begin();
   startButton.onPressed(startPressed);
-
-  // if (startButton.supportsInterrupt())
-  // {
-  //   startButton.enableInterrupt(startPressed);
-  // }
-  // stopButton.begin();
-  // stopButton.onPressed(stopPressed);
+  stopButton.begin();
+  stopButton.onPressed(stopPressed);
 
   Scheduler.startLoop(loop2);
 }
@@ -199,6 +194,7 @@ void loop() {
       SerialUSB.println(F("STOP_BYTE_ERROR"));
   }
 
+  // Currently disabled while we test buttons
   // readPresentValue();
   // writeTargetTemperature(20);
 
