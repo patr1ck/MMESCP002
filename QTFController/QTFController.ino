@@ -1,6 +1,8 @@
 #include "SerialTransfer.h"
+#include <Scheduler.h>
 #include <AccelStepper.h>
 #include <ModbusMaster.h>
+#include <EasyButton.h>
 
 // ------------- Configuration Section -------------
 
@@ -15,6 +17,12 @@ int runTime = 100;            // In minutes.
 #define MAX485_RE_NEG 6     //RE Pin of Max485
 #define GREEN_BUTTON_PIN 22
 #define RED_BUTTON_PIN 23
+
+int debounce = 50;
+bool pullup = true;
+bool invert = true;
+EasyButton startButton(GREEN_BUTTON_PIN, debounce, pullup, invert);
+EasyButton stopButton(RED_BUTTON_PIN);
 
 ModbusMaster tempControllerMM;
 int presentValue = 0;
@@ -131,8 +139,20 @@ void setup() {
   tempControllerMM.preTransmission(preTransmission);
   tempControllerMM.postTransmission(postTransmission);
 
-  SerialUSB.println("Time(s),Temp1,Temp2,Temp3,Temp4,Temp5,StepperPosition,StepperSpeed,StepperAcceleration,StepperDistanceToGo,StepperDirection,StepperTargetPosition,PresentValue");
-  delay(2000);
+  // SerialUSB.println("Time(s),Temp1,Temp2,Temp3,Temp4,Temp5,StepperPosition,StepperSpeed,StepperAcceleration,StepperDistanceToGo,StepperDirection,StepperTargetPosition,PresentValue");
+  delay(1000);
+
+  startButton.begin();
+  startButton.onPressed(startPressed);
+
+  // if (startButton.supportsInterrupt())
+  // {
+  //   startButton.enableInterrupt(startPressed);
+  // }
+  // stopButton.begin();
+  // stopButton.onPressed(stopPressed);
+
+  Scheduler.startLoop(loop2);
 }
 
 void loop() {
@@ -179,8 +199,23 @@ void loop() {
       SerialUSB.println(F("STOP_BYTE_ERROR"));
   }
 
-  readPresentValue();
-  writeTargetTemperature(20);
+  // readPresentValue();
+  // writeTargetTemperature(20);
 
-  delay(1000); // Commented this out to make stepper motor run more smoothly
+  // delay(1000); // Commented this out to make stepper motor run more smoothly
+  yield();
+}
+
+void startPressed() {
+  SerialUSB.println("Start button has been pressed!");
+}
+
+void stopPressed() {
+  SerialUSB.println("Stop button has been pressed!");
+}
+
+void loop2() {
+  startButton.read();
+  stopButton.read();
+  yield();
 }
