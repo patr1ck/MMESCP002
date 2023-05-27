@@ -1,8 +1,9 @@
 #include "SerialTransfer.h"
 #include <Scheduler.h>
 #include <AccelStepper.h>
-#include <ModbusMaster.h>
 #include <EasyButton.h>
+#include <ModbusMaster.h>
+
 
 // ------------- Configuration Section -------------
 
@@ -17,19 +18,45 @@ int runTime = 100;            // In minutes.
 #define MAX485_RE_NEG 6     //RE Pin of Max485
 #define GREEN_BUTTON_PIN 22
 #define RED_BUTTON_PIN 23
+#define LIMIT_SWITCH_START_SIDE 24
+#define LIMIT_SWITCH_END_SIDE 25
+
+#define MySerial Serial3
+#define PresentValueAddress 0x3E8
 
 int debounce = 50;
 bool pullup = true;
 bool invert = true;
 EasyButton startButton(GREEN_BUTTON_PIN, debounce, pullup, invert);
 EasyButton stopButton(RED_BUTTON_PIN, debounce, pullup, invert);
+EasyButton limitSwitchStart(LIMIT_SWITCH_START_SIDE, debounce, pullup, invert);
+EasyButton limitSwitchEnd(LIMIT_SWITCH_END_SIDE, debounce, pullup, invert);
+
 
 ModbusMaster tempControllerMM;
+// ModbusSerial tempControllerMM(MySerial, 1, MAX485_DE);
 int presentValue = 0;
+
+struct STRUCT {
+  float temp1;
+  float temp2;
+  float temp3;
+  float temp4;
+  float temp5;
+} data;
+
+SerialTransfer teensyToArduinoTransfer;
+
+const int dirPin1 = 2;
+const int stepPin1 = 3;
+AccelStepper linearStepper(AccelStepper::DRIVER, stepPin1, dirPin1);
+
+int desiredPosition = -1; // User defined desired position
+
 
 void readPresentValue() {
 
-  int addressToRead = 0x3E8; // The address of Present Value (See Section 2.3 "Read Input Registers" of TK Series User Manual for Communication)
+  int addressToRead = PresentValueAddress; // The address of Present Value (See Section 2.3 "Read Input Registers" of TK Series User Manual for Communication)
 
   uint8_t ReadResult = tempControllerMM.readInputRegisters(addressToRead, 1);
   int dataNya;
@@ -88,34 +115,6 @@ void postTransmission() { //Function for setting stste of Pins DE & RE of RS-485
   delay(500);
 }
 
-
-
-//Notes
- //********************************************************************************************************** 
- //Any data that you're writing to the Serial port using Serial.println() 
- //or Serial.print() in your sketch will be graphed in real time in the Serial Plotter. 
- //********************************************************************************************************** 
- //To convert the time from milliseconds to seconds, minutes, or hours, you can use the following equations: 
- //Seconds: time (in seconds) = millis() / 1000 
- //Minutes: time (in minutes) = millis() / (1000 * 60) 
- //Hours: time (in hours) = millis() / (1000 * 60 * 60) 
- //***********************************************************************************************************
-
-
-struct STRUCT {
-  float temp1;
-  float temp2;
-  float temp3;
-  float temp4;
-  float temp5;
-} data;
-
-SerialTransfer teensyToArduinoTransfer;
-
-const int dirPin1 = 2;
-const int stepPin1 = 3;
-AccelStepper linearStepper(AccelStepper::DRIVER, stepPin1, dirPin1);
-
 void setup() {
   SerialUSB.begin(9600);
   Serial1.begin(9600);
@@ -124,40 +123,51 @@ void setup() {
   linearStepper.setMaxSpeed(800); 
   linearStepper.setSpeed(800);
   linearStepper.setCurrentPosition(0);
-  linearStepper.setAcceleration(0);
-  // linearStepper.moveTo(((200*100)/4)*300); 
+  linearStepper.setAcceleration(300);
 
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
 
   Serial3.begin(9600, SERIAL_8E1); // 8 bits, even parity, 1 stop bit
-  while (!Serial3) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
+  while (!Serial3); // Wait for Serial3 to be ready.
 
   tempControllerMM.begin(1, Serial3);
   tempControllerMM.preTransmission(preTransmission);
   tempControllerMM.postTransmission(postTransmission);
-
-  // SerialUSB.println("Time(s),Temp1,Temp2,Temp3,Temp4,Temp5,StepperPosition,StepperSpeed,StepperAcceleration,StepperDistanceToGo,StepperDirection,StepperTargetPosition,PresentValue");
   delay(1000);
 
   startButton.begin();
   startButton.onPressed(startPressed);
+
   stopButton.begin();
   stopButton.onPressed(stopPressed);
 
+  limitSwitchStart.begin();
+  limitSwitchStart.onPressed(limitStartHit);
+  
+  limitSwitchEnd.begin();
+  limitSwitchEnd.onPressed(limitEndHit);
+  
   Scheduler.startLoop(loop2);
+
+  SerialUSB.println("Enter the desired position when ready:");
 }
 
 void loop() {
+  if(desiredPosition == -1 && SerialUSB.available() > 0) {
+    desiredPosition = SerialUSB.parseInt();
+    linearStepper.moveTo(((200*100)/4)*desiredPosition); 
+    SerialUSB.println("Time(s),Temp1,Temp2,Temp3,Temp4,Temp5,StepperPosition,DesiredPosition,TimeRemaining");
+    delay(500);
+  }
+  
   linearStepper.run(); // Stepper motor run command moved here
 
   if(teensyToArduinoTransfer.available()) {
     uint16_t recSize = 0;
     recSize = teensyToArduinoTransfer.rxObj(data, recSize);
     
-    SerialUSB.print(millis()/1000.0); // time printed in seconds
+    SerialUSB.print(millis()/1000.0);
     SerialUSB.print(',');
     SerialUSB.print(data.temp1);
     SerialUSB.print(',');
@@ -169,20 +179,14 @@ void loop() {
     SerialUSB.print(',');
     SerialUSB.print(data.temp5);
     SerialUSB.print(',');
-
     SerialUSB.print(linearStepper.currentPosition());
     SerialUSB.print(',');
-    SerialUSB.print(linearStepper.speed());
+    SerialUSB.print(desiredPosition);
     SerialUSB.print(',');
-    SerialUSB.print(linearStepper.acceleration());
-    SerialUSB.print(',');
-    SerialUSB.print(linearStepper.distanceToGo());
-    SerialUSB.print(',');
-    SerialUSB.print(linearStepper.targetPosition());
-    
+    int timeRemaining = desiredPosition - linearStepper.currentPosition();
+    SerialUSB.print(timeRemaining < 0 ? 0 : timeRemaining);
     SerialUSB.print(',');
     SerialUSB.println(presentValue);
-
 
   } else if(teensyToArduinoTransfer.status < 0) {
     SerialUSB.print("ERROR: ");
@@ -194,24 +198,30 @@ void loop() {
       SerialUSB.println(F("STOP_BYTE_ERROR"));
   }
 
-  // Currently disabled while we test buttons
-  // readPresentValue();
-  // writeTargetTemperature(20);
-
-  // delay(1000); // Commented this out to make stepper motor run more smoothly
   yield();
 }
 
 void startPressed() {
   SerialUSB.println("Start button has been pressed!");
+  readPresentValue(); // Debug Only
 }
 
 void stopPressed() {
   SerialUSB.println("Stop button has been pressed!");
 }
 
+void limitStartHit() {
+  SerialUSB.println("Limit Start button has been pressed!");
+}
+
+void limitEndHit() {
+  SerialUSB.println("Limit End button has been pressed!");
+}
+
 void loop2() {
   startButton.read();
   stopButton.read();
+  limitSwitchStart.read();
+  limitSwitchEnd.read();
   yield();
 }
