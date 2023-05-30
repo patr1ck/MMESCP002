@@ -7,8 +7,7 @@
 
 // ------------- Configuration Section -------------
 
-int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
-int runTime = 100;            // In minutes.
+const int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
 const float DesiredPosition1 = -5.0; // Milimeters from current position
 
 // ------------ End Configuration Section ----------
@@ -32,7 +31,6 @@ EasyButton limitSwitchEnd(LIMIT_SWITCH_END_SIDE, debounce, pullup, invert);
 // Temp Controller
 #define MAX485_DE 7         //DE Pin of Max485
 #define MAX485_RE_NEG 6     //RE Pin of Max485
-#define MySerial Serial3
 #define PresentValueAddress 0x3E8
 ModbusMaster tempControllerMM;
 int presentValue = 0;
