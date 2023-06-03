@@ -8,7 +8,7 @@
 // ------------- Configuration Section -------------
 
 const int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
-const float DesiredPosition1 = -5.0; // Milimeters from current position
+const float DesiredPosition1 = 3000.0; // Milimeters from current position
 
 // ------------ End Configuration Section ----------
 
