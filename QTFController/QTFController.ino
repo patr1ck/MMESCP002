@@ -8,8 +8,8 @@
 // ------------- Configuration Section -------------
 
 const int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
-const float DesiredPosition1 = 3000.0; // Milimeters from current position
-
+const float DesiredPosition1 = -300.0; // Milimeters from current position
+const float s = 1000; // 1.2cm/min
 // ------------ End Configuration Section ----------
 
 
@@ -49,7 +49,6 @@ SerialTransfer teensyToArduinoTransfer;
 const int dirPin1 = 2;
 const int stepPin1 = 3;
 AccelStepper linearStepper(AccelStepper::DRIVER, stepPin1, dirPin1);
-int desiredPosition = -1; // User defined desired position
 const int stepsPerRotation = 200;
 const int gearboxRatio = 100;
 const float leadOfScrew = 4.0;
@@ -127,12 +126,13 @@ void setup() {
   Serial1.begin(9600);
   teensyToArduinoTransfer.begin(Serial1);
 
-  linearStepper.setMaxSpeed(800);
-  linearStepper.setSpeed(800);
+  linearStepper.setMaxSpeed(s);
+  linearStepper.setSpeed(s);
   linearStepper.setCurrentPosition(0);
   linearStepper.setAcceleration(300);
   int desiredPosition = ((stepsPerRotation * gearboxRatio) / leadOfScrew) * DesiredPosition1; // Calculate desired position in steps
   linearStepper.moveTo(desiredPosition); // Move the stepper motor to the desired position
+
 
   lastUpdateTime = millis(); // Initialize the last update time
   pinMode(MAX485_RE_NEG, OUTPUT);
