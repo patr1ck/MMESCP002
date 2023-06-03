@@ -8,8 +8,14 @@
 // ------------- Configuration Section -------------
 
 const int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
-const float DesiredPosition1 = 300.0; // Milimeters from current position (- = move from right to left when the green button is pressed)
-const float s = 633.333333333333; // 0.8cm/min
+const float DesiredPosition1 = -300.0; // 300 Milimeters (30cm) from current position (- = move from right to left when the green button is pressed)
+
+// speeds to choose from //
+
+const float s = 666.666666666666; // 0.8cm/min
+//const float s = 833.33333333333; // 1cm/min
+//const float s = 1000; // 1.2cm/min
+
 // ------------ End Configuration Section ----------
 
 
