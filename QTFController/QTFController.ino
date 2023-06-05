@@ -58,7 +58,7 @@ AccelStepper linearStepper(AccelStepper::DRIVER, stepPin1, dirPin1);
 const int stepsPerRotation = 200;
 const int gearboxRatio = 100;
 const float leadOfScrew = 4.0;
-const float estimatedSpeed = 800.0; // Estimated speed in steps per second
+const float estimatedSpeed = s; // Estimated speed in steps per second
 const float estimatedAcceleration = 300.0; // Estimated acceleration in steps per second squared
 unsigned long estimatedRunTime = 0; // Global variable for estimated run time
 unsigned long lastUpdateTime = 0; // Last time the estimated run time was updated
@@ -137,7 +137,7 @@ void setup() {
   linearStepper.setCurrentPosition(0);
   linearStepper.setAcceleration(300);
   int desiredPosition = ((stepsPerRotation * gearboxRatio) / leadOfScrew) * DesiredPosition1; // Calculate desired position in steps
-  linearStepper.moveTo(desiredPosition); // Move the stepper motor to the desired position
+  linearStepper.moveTo(desiredPosition); // Move the stepper motor to the desired position while reading The Temp
 
 
   lastUpdateTime = millis(); // Initialize the last update time
