@@ -7,14 +7,9 @@
 
 // ------------- Configuration Section -------------
 
+const bool resetMode = false;       // Set to true to reset the position of the raft back to the start
 const int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
-const float DesiredPosition1 = -300.0; // 300 Milimeters (30cm) from current position (- = move from right to left when the green button is pressed)
-
-// speeds to choose from //
-
-const float s = 666.666666666666; // 0.8cm/min
-//const float s = 833.33333333333; // 1cm/min
-//const float s = 1000; // 1.2cm/min
+const int runTime = 20;             // In minutes. Min is 20 minutes, max is 180 minutes.
 
 // ------------ End Configuration Section ----------
 
@@ -40,6 +35,7 @@ EasyButton limitSwitchEnd(LIMIT_SWITCH_END_SIDE, debounce, pullup, invert);
 #define PresentValueAddress 0x3E8
 ModbusMaster tempControllerMM;
 int presentValue = 0;
+int biasTemp = targetTemperature + 100; // The bias in the heater controller needed to get the desired temperature inside the QT
 
 // Teensy Serial Communication
 struct STRUCT {
@@ -61,9 +57,13 @@ const float leadOfScrew = 4.0;
 const float estimatedSpeed = s; // Estimated speed in steps per second
 const float estimatedAcceleration = 300.0; // Estimated acceleration in steps per second squared
 unsigned long estimatedRunTime = 0; // Global variable for estimated run time
+const float stepSize = 1.0 / (stepsPerRotation * gearboxRatio / leadOfScrew); // Step size in millimeters
+
 unsigned long lastUpdateTime = 0; // Last time the estimated run time was updated
 const unsigned long updateInterval = 1000; // Update interval for estimated run time in milliseconds
-const float stepSize = 1.0 / (stepsPerRotation * gearboxRatio / leadOfScrew); // Step size in millimeters
+
+unsigned long lastTempUpdateTime = 0; // Last time the temp change time was updated
+const unsigned long tempUpdateInterval = 30000; // Update interval for temp changes in milliseconds
 
 
 void readPresentValue() {
@@ -132,15 +132,31 @@ void setup() {
   Serial1.begin(9600);
   teensyToArduinoTransfer.begin(Serial1);
 
-  linearStepper.setMaxSpeed(s);
-  linearStepper.setSpeed(s);
-  linearStepper.setCurrentPosition(0);
-  linearStepper.setAcceleration(300);
-  int desiredPosition = ((stepsPerRotation * gearboxRatio) / leadOfScrew) * DesiredPosition1; // Calculate desired position in steps
-  linearStepper.moveTo(desiredPosition); // Move the stepper motor to the desired position while reading The Temp
+  if (resetMode == true) {
+    // Run backwards in order to reset the position
+    linearStepper.setCurrentPosition(1000);
+    desiredPosition = 0;
+    linearStepper.setMaxSpeed(800);
+    linearStepper.setSpeed(800);
+    // The limit switches will stop movement when they are hit
+  } else {
+    // We're in the normal run mode, so set the desired position to being the end of the LA and current position to 0
+    linearStepper.setCurrentPosition(0);
+    desiredPosition = 1000;
+  }
 
+  int desiredPositionInSteps = ((stepsPerRotation * gearboxRatio) / leadOfScrew) * desiredPosition; // Calculate desired position in steps  
+    // Calculate the speed needed given the run time
+  int neededSpeed = desiredPosition / (runTime * 60.0); // Convert run time to seconds
+  linearStepper.setMaxSpeed(neededSpeed); // Not sure if this line and the next are in the correct units, need to double check
+  linearStepper.setSpeed(neededSpeed);
+  linearStepper.setAcceleration(300);
+  
+  linearStepper.moveTo(desiredPositionInSteps); // Move the stepper motor to the desired position
 
   lastUpdateTime = millis(); // Initialize the last update time
+  lastTempUpdateTime = millis(); // Initialize the last update time for temp changes
+
   pinMode(MAX485_RE_NEG, OUTPUT);
   pinMode(MAX485_DE, OUTPUT);
 
@@ -173,6 +189,8 @@ void loop() {
 
   if (stopWasPressed == false && startWasPressed == true) {
     linearStepper.run(); // Stepper motor run command moved here
+  } else {
+    return; // No need to do anything else if we are stopped.
   }
 
   // Update the estimated run time at the specified interval
@@ -213,6 +231,34 @@ void loop() {
     SerialUSB.print(',');
     SerialUSB.print(estimatedRunTime / 1000.0, 3); // Print estimated run time in seconds
     SerialUSB.println();
+
+
+    // Use the approriate thermocouple's temperature given the current position of the stepper motor
+    // We could do something more intelligent here, like a tie-bar equation to weigh the temperatures
+    // of the two adajacent thermocouples depending on distancge from them, but this works fine for now.
+    float distanceToTravel = abs(linearStepper.distanceToGo());
+    float currentTemp = 0;
+    if (distanceToTravel > 0 && distanceToTravel < 200) {
+      currentTemp = data.temp1;
+    } else if (distanceToTravel >=200 && distanceToTravel <= 400) {
+      currentTemp = data.temp2;
+    } else if (distanceToTravel >=400 && distanceToTravel <= 600) {
+      currentTemp = data.temp3;
+    } else if (distanceToTravel >=600 && distanceToTravel <= 800) {
+      currentTemp = data.temp5;
+    } else if (distanceToTravel >=800 && distanceToTravel <= 1000) {
+      currentTemp = data.temp5;
+    }
+
+    // Check to make sure that we're meeting the temp requirement at the current location
+    // and increase the temperature if not.
+    if (currentTemp < targetTemperature) {
+      // We need to increase the temperature
+
+    if (millis() - lastTempUpdateTime >= tempUpdateInterval) {
+      writeTargetTemperature(biasTemp);
+      lastTempUpdateTime = millis(); // Update the last temp change time, so we don't spam the RS485 with pointless updates
+    }
 
   } else if(teensyToArduinoTransfer.status < 0) {
     SerialUSB.print("ERROR: ");
