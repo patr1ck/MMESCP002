@@ -8,7 +8,7 @@
 // ------------- Configuration Section -------------
 
 const bool resetMode = false;       // Set to true to reset the position of the raft back to the start
-const int targetTemperature = 20;   // In degrees C. Min is 0, Max is 700.
+const int targetTemperature = 600;   // In degrees C. Min is 0, Max is 700.
 const int runTime = 20;             // In minutes. Min is 20 minutes, max is 180 minutes.
 
 // ------------ End Configuration Section ----------
@@ -56,7 +56,7 @@ AccelStepper linearStepper(AccelStepper::DRIVER, stepPin1, dirPin1);
 const int stepsPerRotation = 200;
 const int gearboxRatio = 100;
 const float leadOfScrew = 4.0;
-const float estimatedSpeed = s; // Estimated speed in steps per second
+const float estimatedSpeed = 1000; // Estimated speed in steps per second
 const float estimatedAcceleration = 300.0; // Estimated acceleration in steps per second squared
 unsigned long estimatedRunTime = 0; // Global variable for estimated run time
 const float stepSize = 1.0 / (stepsPerRotation * gearboxRatio / leadOfScrew); // Step size in millimeters
@@ -133,11 +133,12 @@ void setup() {
   SerialUSB.begin(9600);
   Serial1.begin(9600);
   teensyToArduinoTransfer.begin(Serial1);
+  float desiredPosition;
 
   if (resetMode == true) {
     // Run backwards in order to reset the position
     linearStepper.setCurrentPosition(1000);
-    desiredPosition = 0;
+    desiredPosition = -1000;
     linearStepper.setMaxSpeed(800);
     linearStepper.setSpeed(800);
     // The limit switches will stop movement when they are hit
@@ -145,13 +146,14 @@ void setup() {
     // We're in the normal run mode, so set the desired position to being the end of the LA and current position to 0
     linearStepper.setCurrentPosition(0);
     desiredPosition = 1000;
+
+    // Calculate the speed needed given the run time
+    int neededSpeed = (desiredPosition * stepSize) / (runTime * 60.0); // Convert run time to seconds
+    linearStepper.setMaxSpeed(800); // Not sure if this line and the next are in the correct units, need to double check
+    linearStepper.setSpeed(800);
   }
 
   int desiredPositionInSteps = ((stepsPerRotation * gearboxRatio) / leadOfScrew) * desiredPosition; // Calculate desired position in steps  
-    // Calculate the speed needed given the run time
-  int neededSpeed = desiredPosition / (runTime * 60.0); // Convert run time to seconds
-  linearStepper.setMaxSpeed(neededSpeed); // Not sure if this line and the next are in the correct units, need to double check
-  linearStepper.setSpeed(neededSpeed);
   linearStepper.setAcceleration(300);
   
   linearStepper.moveTo(desiredPositionInSteps); // Move the stepper motor to the desired position
@@ -269,7 +271,7 @@ void loop() {
   if (stopWasPressed == false && startWasPressed == true) {
     linearStepper.run(); // Stepper motor run command moved here
   } else {
-    return; // No need to do anything else if we are stopped.
+    // No need to do anything else if we are stopped.
   }
 
   yield();
