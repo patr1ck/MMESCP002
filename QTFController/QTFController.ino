@@ -8,7 +8,7 @@
 // ------------- Configuration Section -------------
 
 const bool resetMode = false;       // Set to true to reset the position of the raft back to the start
-const int targetTemperature = 600;   // In degrees C. Min is 0, Max is 700.
+int targetTemperature = 600;   // In degrees C. Min is 0, Max is 700.
 const int runTime = 100;             // In minutes. Min is 100 minutes, max is 180 minutes.
 
 // ------------ End Configuration Section ----------
@@ -286,6 +286,7 @@ void startPressed() {
 void stopPressed() {
   SerialUSB.println("Stop button has been pressed!");
   stopWasPressed = true;
+  targetTemperature = 20;
   writeTargetTemperature(20);
 }
 
