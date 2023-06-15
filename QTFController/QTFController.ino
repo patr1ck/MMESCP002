@@ -35,8 +35,10 @@ EasyButton limitSwitchEnd(LIMIT_SWITCH_END_SIDE, debounce, pullup, invert);
 #define PresentValueAddress 0x3E8
 ModbusMaster tempControllerMM;
 int presentValue = 0;
-int biasTemp = targetTemperature + 100; // The bias in the heater controller needed to get the desired temperature inside the QT
 
+// The bias in the heater controller needed to get the desired temperature inside the QT
+// This was found after some experimentation and could be improved.
+int biasTemp = targetTemperature + 100; 
 // Teensy Serial Communication
 struct STRUCT {
   float temp1;
@@ -63,7 +65,7 @@ unsigned long lastUpdateTime = 0; // Last time the estimated run time was update
 const unsigned long updateInterval = 1000; // Update interval for estimated run time in milliseconds
 
 unsigned long lastTempUpdateTime = 0; // Last time the temp change time was updated
-const unsigned long tempUpdateInterval = 30000; // Update interval for temp changes in milliseconds
+const unsigned long tempUpdateInterval = 30 * 1000; // Update interval for temp changes in milliseconds
 
 
 void readPresentValue() {
@@ -187,12 +189,6 @@ void setup() {
 
 void loop() {  
 
-  if (stopWasPressed == false && startWasPressed == true) {
-    linearStepper.run(); // Stepper motor run command moved here
-  } else {
-    return; // No need to do anything else if we are stopped.
-  }
-
   // Update the estimated run time at the specified interval
   if (millis() - lastUpdateTime >= updateInterval) {
     // Calculate estimated run time
@@ -254,10 +250,10 @@ void loop() {
     // and increase the temperature if not.
     if (currentTemp < targetTemperature) {
       // We need to increase the temperature
-
-    if (millis() - lastTempUpdateTime >= tempUpdateInterval) {
-      writeTargetTemperature(biasTemp);
-      lastTempUpdateTime = millis(); // Update the last temp change time, so we don't spam the RS485 with pointless updates
+      if (millis() - lastTempUpdateTime >= tempUpdateInterval) {
+        writeTargetTemperature(biasTemp);
+        lastTempUpdateTime = millis(); // Update the last temp change time, so we don't spam the RS485 with pointless updates
+      }
     }
 
   } else if(teensyToArduinoTransfer.status < 0) {
@@ -268,6 +264,12 @@ void loop() {
       SerialUSB.println(F("PAYLOAD_ERROR"));
     else if(teensyToArduinoTransfer.status == -3)
       SerialUSB.println(F("STOP_BYTE_ERROR"));
+  }
+
+  if (stopWasPressed == false && startWasPressed == true) {
+    linearStepper.run(); // Stepper motor run command moved here
+  } else {
+    return; // No need to do anything else if we are stopped.
   }
 
   yield();
