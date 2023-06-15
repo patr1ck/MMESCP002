@@ -9,7 +9,7 @@
 
 const bool resetMode = false;       // Set to true to reset the position of the raft back to the start
 const int targetTemperature = 600;   // In degrees C. Min is 0, Max is 700.
-const int runTime = 20;             // In minutes. Min is 20 minutes, max is 180 minutes.
+const int runTime = 100;             // In minutes. Min is 100 minutes, max is 180 minutes.
 
 // ------------ End Configuration Section ----------
 
@@ -148,9 +148,9 @@ void setup() {
     desiredPosition = 1000;
 
     // Calculate the speed needed given the run time
-    int neededSpeed = (desiredPosition * stepSize) / (runTime * 60.0); // Convert run time to seconds
-    linearStepper.setMaxSpeed(800); // Not sure if this line and the next are in the correct units, need to double check
-    linearStepper.setSpeed(800);
+    int neededSpeed = (desiredPosition / stepSize) / (runTime * 60.0); // Convert run time to seconds
+    linearStepper.setMaxSpeed(neededSpeed); // Not sure if this line and the next are in the correct units, need to double check
+    linearStepper.setSpeed(neededSpeed);
   }
 
   int desiredPositionInSteps = ((stepsPerRotation * gearboxRatio) / leadOfScrew) * desiredPosition; // Calculate desired position in steps  
