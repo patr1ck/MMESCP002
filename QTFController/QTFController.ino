@@ -286,6 +286,7 @@ void startPressed() {
 void stopPressed() {
   SerialUSB.println("Stop button has been pressed!");
   stopWasPressed = true;
+  writeTargetTemperature(20);
 }
 
 void limitStartHit() {
